@@ -1,0 +1,104 @@
+Bootstrap: localimage
+From: askapsoft_base.simg
+
+
+%help
+	====================================================================================================
+	==       						ASKAPSOFT CONTAINER HELP         																							==
+	====================================================================================================
+	This is an ASKAPSOFT container. It uses the dependencies provided in the base container.
+	
+	====================================================================================================
+	
+
+%labels
+	Maintainer Simone Riggi (INAF-OACT)
+	Version v1.0
+
+%environment
+	
+
+%setup 
+	echo "Creating software dirs ..."
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/TarFiles
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/Sources
+
+%files
+	askapsoft-CP-0.21.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.21.0.tar.gz
+	
+%post
+
+	#################################
+	###    ENV VARS
+	#################################	
+	# Define env variables
+	export SOFTDIR="/opt/Software"
+	export SOFTDIR_SRCS="$SOFTDIR/Sources"
+	export SOFTDIR_TAR="$SOFTDIR/TarFiles"
+	
+
+	#################################
+	###    ASKAP SOFT
+	#################################
+	export ASKAPSOFT_VERSION="0.21.0"	
+	export ASKAPSOFT_TOP_DIR="$SOFTDIR/ASKAPSoft"
+	export ASKAPSOFT_SRC_DIR="$SOFTDIR_SRCS/askapsoft-CP-$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_INSTALL_DIR="$ASKAPSOFT_TOP_DIR/v$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_RELEASE_DIR="$ASKAPSOFT_INSTALL_DIR/cpapps"		
+	export ASKAPSOFT_PIPELINE_RELEASE_DIR="$ASKAPSOFT_INSTALL_DIR/pipelines"		
+
+	echo "Creating ASKAPSoft install dir $ASKAPSOFT_INSTALL_DIR ..."
+	mkdir -p "$ASKAPSOFT_INSTALL_DIR"
+	mkdir -p "$ASKAPSOFT_RELEASE_DIR"
+	mkdir -p "$ASKAPSOFT_PIPELINE_RELEASE_DIR"
+
+	# Untar ASKAPSOFT
+	if [ ! -d "$ASKAPSOFT_SRC_DIR" ] ; then
+		echo "Untar askapsoft in dir $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/askapsoft-CP-$ASKAPSOFT_VERSION.tar.gz"
+	fi 
+
+	ls -la $SOFTDIR_SRCS
+	ls -la $ASKAPSOFT_SRC_DIR
+
+	echo "Entering askapsoft source dir $ASKAPSOFT_SRC_DIR"
+	cd "$ASKAPSOFT_SRC_DIR"
+		
+	echo "Bootstrapping build ..."
+	unset PYTHONPATH ## Need otherwise virtualenv fails
+	/usr/bin/python bootstrap.py -n
+
+	echo "Loading askapsoft env vars ..."
+	cd "$ASKAPSOFT_SRC_DIR"
+	ls -la $ASKAPSOFT_SRC_DIR
+	. $ASKAPSOFT_SRC_DIR/initaskap.sh
+	
+	echo "Building askapsoft ..."
+	rbuild -S -a
+
+	### INSTALL RELEASES
+	 
+
+	## CPPAPS
+	## PIPELINES
+
+	### CREATE MODULES
+	### 
+
+	### ADD MODULE DIRS TO MODULEPATH
+	### 
+
+	#################################
+	###    SET ENV VARS
+	#################################
+	#echo "export PATH=$PATH" >> $SINGULARITY_ENVIRONMENT
+	#echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $SINGULARITY_ENVIRONMENT
+	#echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $SINGULARITY_ENVIRONMENT
+	#echo "export PYTHONPATH=$PYTHONPATH" >> $SINGULARITY_ENVIRONMENT
+
+
+
+%runscript
+	printenv
