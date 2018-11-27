@@ -287,7 +287,7 @@ From: ubuntu:16.04
 	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
 
 	## Install optional dependencies
-	##apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.4-dev libpython2.7-dev
+	apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.4-dev libpython2.7-dev
 
 	## Create install dir
 	export CASACORE_DATA_URL="ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar"
@@ -299,9 +299,9 @@ From: ubuntu:16.04
 	export CASACORE_DATA_DIR="$SOFTDIR/LIB/casacore/data"
 
 	echo "Creating casacore install dir $CASACORE_INSTALL_DIR & build dir $CASACORE_BUILD_DIR ..."
-	mkdir -p $CASACORE_INSTALL_DIR
-	mkdir -p $CASACORE_BUILD_DIR
-	mkdir -p $CASACORE_DATA_DIR
+	mkdir -p "$CASACORE_INSTALL_DIR"
+	mkdir -p "$CASACORE_BUILD_DIR"
+	mkdir -p "$CASACORE_DATA_DIR"
 	
 	# Downloading casacore data
 	echo "Downloading casacore data from url $CASACORE_DATA_URL ..."
@@ -325,7 +325,27 @@ From: ubuntu:16.04
 		tar -xzvf "$SOFTDIR_TAR/casacore$CASACORE_VERSION.tar.gz"
 	fi 
 	
+	# Build casacore
+	echo "Configure casacore build ..."
+	cd "$CASACORE_BUILD_DIR"
+	cmake -DCMAKE_INSTALL_PREFIX="$CASACORE_INSTALL_DIR" -DCXX11=ON -DUSE_FFTW3=ON -DDATA_DIR="$CASACORE_DATA_DIR" -DUSE_OPENMP=ON -DUSE_HDF5=ON -DBUILD_PYTHON=ON -DUSE_THREADS=ON $CASACORE_SRC_DIR
+	
+	echo "Building casacore ..."
+	make
 
+	echo "Installing casacore ..."
+	make install
+
+
+	# Setting environment variables
+	echo "Setting CASACORE env variables..."
+	export PATH=$CASACORE_INSTALL_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
+	
+	echo '### CASA CORE ###' >> "$SETVARS_FILE"
+	echo 'export PATH=$CASACORE_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
 	
 	#################################
 	###   AOFLAGGER
@@ -333,7 +353,50 @@ From: ubuntu:16.04
 	## Install dependencies
 	apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
 
+	## Download
+	export AOFLAGGER_VERSION="2.13.0"
+	export AOFLAGGER_URL="https://sourceforge.net/projects/aoflagger/files/aoflagger-$AOFLAGGER_VERSION/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
+	export AOFLAGGER_SRC_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION"
+	export AOFLAGGER_INSTALL_DIR="$SOFTDIR/LIB/aoflagger/v$AOFLAGGER_VERSION"
+	export AOFLAGGER_BUILD_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION-build"
 	
+	echo "Creating aoflagger install dir $AOFLAGGER_INSTALL_DIR & build dir $AOFLAGGER_BUILD_DIR ..."
+	mkdir -p "$AOFLAGGER_INSTALL_DIR"
+	mkdir -p "$AOFLAGGER_BUILD_DIR"
+
+	# Download aoflagger
+	if [ ! -d "$AOFLAGGER_SRC_DIR" ] ; then
+		# Download aoflagger
+		echo "Downloading aoflagger from url $AOFLAGGER_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "aoflagger-$AOFLAGGER_VERSION.tar.bz2" "$AOFLAGGER_URL" 
+	
+		# Untar aoflagger
+		echo "Untar aoflagger in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xvf "$SOFTDIR_TAR/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
+	fi 
+	
+	# Build aoflagger
+	echo "Configure aoflagger build ..."
+	cd "$AOFLAGGER_BUILD_DIR"
+	cmake -DCMAKE_INSTALL_PREFIX="$AOFLAGGER_INSTALL_DIR" -DBUILD_SHARED_LIBS=ON -DCMAKE_PREFIX_PATH="$CASACORE_INSTALL_DIR" $AOFLAGGER_SRC_DIR
+	
+	echo "Building aoflagger ..."
+	make
+
+	echo "Installing aoflagger ..."
+	make install	
+
+	# Setting environment variables
+	echo "Setting AOFLAGGER env variables..."
+	export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
+	
+	echo '### AOFLAGGER CORE ###' >> "$SETVARS_FILE"
+	echo 'export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
 
 	#################################
 	###    SET ENV VARS
