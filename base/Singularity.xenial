@@ -1,0 +1,349 @@
+BootStrap: docker
+From: ubuntu:16.04
+
+
+%help
+	This container is a base container for ASKAPSOFT. It contains all dependencies needed to build ASKAPSOFT:
+		- g++
+		- gfortran
+		- openjdk-8-jdk
+		- python-dev
+		- flex
+		- bison
+		- openmpi-bin
+		- libopenmpi-dev
+		- libfreetype6-dev
+		- libpng12-dev
+		- casa
+	
+
+%labels
+	Maintainer Simone Riggi (INAF-OACT)
+	Version v1.0
+
+%environment
+	
+
+%setup 
+	echo "Creating software dirs ..."
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/TarFiles
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/Sources
+
+%files
+	
+
+%post
+
+	#################################
+	###    INSTALL MINIMAL TOOLS
+	#################################
+	# Update system
+	apt-get update
+
+	# Add main repository
+	apt install -y software-properties-common
+	apt-add-repository -y universe
+
+	# Update system
+	apt-get update
+
+	# Install bash & cshell
+	apt-get -y --no-install-recommends install bash csh
+
+	# Install & generate locales
+	apt-get -y install locales
+	echo "LC_ALL=en_US.UTF-8" >> /etc/environment
+	echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+	echo "LANG=en_US.UTF-8" > /etc/locale.conf
+	locale-gen en_US.UTF-8
+	locale-gen en_US.UTF-8
+
+	#################################
+	###    SETUP
+	#################################
+	# Define env variables
+	export SOFTDIR="/opt/Software"
+	export SOFTDIR_SRCS="$SOFTDIR/Sources"
+	export SOFTDIR_TAR="$SOFTDIR/TarFiles"
+	echo "export SOFTDIR=$SOFTDIR" >> $SINGULARITY_ENVIRONMENT
+	echo "export SOFTDIR_SRCS=$SOFTDIR/Sources" >> $SINGULARITY_ENVIRONMENT
+	echo "export SOFTDIR_TAR=$SOFTDIR/TarFiles" >> $SINGULARITY_ENVIRONMENT
+
+	# Creating software base directory and add it to env 
+	echo "Making software base dir: $SOFTDIR"
+	mkdir -p $SOFTDIR
+	
+	# Creating software source & tar files
+	echo "Making software sources & tar dirs: ($SOFTDIR_SRCS, $SOFTDIR_TAR)"
+	mkdir -p $SOFTDIR_SRCS
+	mkdir -p $SOFTDIR_TAR
+
+	# Create a setvars file
+	export SETVARS_FILE="/etc/profile.d/setupSoft.sh"
+	echo "#!/bin/sh" > "$SETVARS_FILE"
+	echo 'export SOFTDIR='"$SOFTDIR" >> "$SETVARS_FILE"
+	echo 'export SOFTDIR_SRCS='"$SOFTDIR_SRCS" >> "$SETVARS_FILE"
+	echo 'export SOFTDIR_TAR='"$SOFTDIR_TAR" >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	#################################
+	###    DEVTOOLS & SYS TOOLS
+	#################################		
+	# Install devel tools
+	apt-get -y --no-install-recommends install gfortran g++ gcc binutils libtool pkg-config build-essential autoconf automake dpkg-dev git cmake scons subversion libreadline-dev libncurses5-dev
+	
+	# Set LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
+
+	echo '### SYS LIBRARIES ###' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	#################################
+	###    PYTHON MODULES
+	#################################
+	# Install python
+	apt-get -y --no-install-recommends install libpython2.7-dev 
+	#apt-get -y --no-install-recommends install python-setuptools
+	
+	# Install pip & upgrade
+	apt-get -y --no-install-recommends install python-pip python-tk python-pkg-resources
+	pip2 install --upgrade pip
+	##pip2 install --upgrade pip==9.0.3
+
+	# Remove old pip
+	apt-get purge -y --auto-remove python-pip
+	
+	# Install python modules
+	pip2 install setuptools --upgrade
+	pip2 install stsci.distutils --upgrade
+	pip2 install numpy --upgrade
+	
+	
+	#pip install numpy scipy matplotlib six argparse stsci.distutils
+	#pip install numpy astropy pyfits scipy scikit-image scikit-learn matplotlib six argparse photutils ipython stsci.distutils
+	#pip install astropy --upgrade
+	#pip install pyfits --upgrade
+	#pip install scipy --upgrade
+
+	# Install python 3
+	apt-get -y install python3
+
+	# Set env vars
+	export PYTHONPATH=/usr/lib/python2.7:/usr/lib/python2.7/site-packages:/usr/lib/python2.7/dist-packages:/usr/lib/python2.7/plat-x86_64-linux-gnu:/usr/lib/python2.7/lib-tk:/usr/lib/python2.7/lib-old:/usr/lib/python2.7/lib-dynload:/usr/local/lib/python2.7/dist-packages:$PYTHONPATH
+
+	echo '### PYTHON MODULES ###' >> "$SETVARS_FILE"
+	echo 'export PYTHONPATH='"$PYTHONPATH" >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	#################################
+	###    BASIC LIBS & TOOLS
+	#################################
+	# Install some libs
+	# NB: libxcb-dri3-dev needed to replace CASA bugged lib
+	apt-get -y --no-install-recommends install curl libcurl4-openssl-dev libopenblas-dev libxcb-dri3-dev libgl1-mesa-dev libglu1-mesa-dev flex bison ssh
+	apt-get -y --no-install-recommends install libx11-dev libxpm-dev libxft-dev libxext-dev libfreetype6-dev libpng12-dev libjpeg-dev
+	apt-get -y --no-install-recommends install openjdk-8-jdk
+	
+	# Install some sys tools
+	apt-get -y --no-install-recommends install wget bzip2 nano unzip locate less
+
+	#################################
+	###    BOOST LIBRARIES
+	#################################
+	# Install boost (in Ubuntu 16 version 1.58)
+	apt-get -y --no-install-recommends install libboost-all-dev
+
+	#################################
+	###    GSL LIBRARIES
+	#################################
+	# Install GSL lib (in Ubuntu 16 version 2.1)
+	apt-get -y --no-install-recommends install libgsl-dev 
+	
+	#################################
+	###   TCL + ENV MODULES (needed for modules)
+	#################################
+	apt-get -y --no-install-recommends install tcl8.5-dev tclx environment-modules
+	
+	
+
+	#################################
+	###    OPENMPI
+	#################################
+	export OPENMPI_VERSION="2.1.2"
+	export OPENMPI_URL="https://www.open-mpi.org/software/ompi/v2.1/downloads/openmpi-$OPENMPI_VERSION.tar.gz"
+	export OPENMPI_SRC_DIR="$SOFTDIR_SRCS/openmpi-$OPENMPI_VERSION"	
+	export OPENMPI_INSTALL_DIR="$SOFTDIR/LIB/openmpi/v$OPENMPI_VERSION"
+	echo "Creating openmpi install dir $OPENMPI_INSTALL_DIR ..."
+	mkdir -p $OPENMPI_INSTALL_DIR
+
+	# Install openmpi
+	if [ ! -d "$OPENMPI_SRC_DIR" ] ; then
+		# Download openmpi
+		echo "Downloading openmpi from url $OPENMPI_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "openmpi$OPENMPI_VERSION.tar.gz" "$OPENMPI_URL" 
+	
+		# Untar openmpi
+		echo "Untar openmpi in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz"
+	fi 
+	
+	echo "Entering openmpi source dir $OPENMPI_SRC_DIR"
+	cd "$OPENMPI_SRC_DIR"
+
+	echo "Configuring openmpi build..."
+	./configure --prefix="$OPENMPI_INSTALL_DIR"
+
+	echo "Building & installing openmpi..."
+	make all install
+
+	## NB: Prepend OPENMPI to system path to allow CAESAR find these instead of system version
+	echo "Setting up env variables for mpich..."
+	echo "export OPENMPI_DIR=$OPENMPI_INSTALL_DIR" >> $SINGULARITY_ENVIRONMENT
+	export PATH=$OPENMPI_INSTALL_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$OPENMPI_INSTALL_DIR/lib:$LD_LIBRARY_PATH
+	export PKG_CONFIG_PATH=$OPENMPI_INSTALL_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
+	
+	echo '### OPENMPI ###' >> "$SETVARS_FILE"
+	echo 'export OPENMPI_DIR='"$OPENMPI_INSTALL_DIR" >> "$SETVARS_FILE"
+	echo 'export PATH=$OPENMPI_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=$OPENMPI_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo 'export PKG_CONFIG_PATH=$OPENMPI_DIR/lib/pkgconfig:$PKG_CONFIG_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	#echo "Remove OPENMPI source directory $OPENMPI_SRC_DIR ..."
+	#rm -rf $OPENMPI_SRC_DIR
+	#echo "Remove OPENMPI tar file $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz ..."
+	#rm -rf $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz || :
+
+	#################################
+	###    CASA NRAO
+	#################################
+	export CASA_VERSION="5.4.0" # 
+	export CASA_VERSION_MINOR="68"
+	export CASA_URL="https://casa.nrao.edu/download/distro/linux/release/el7/casa-release-$CASA_VERSION-$CASA_VERSION_MINOR"'.el7.tar.gz'
+	export CASA_UNTAR_DIR="casa-release-$CASA_VERSION-$CASA_VERSION_MINOR.el7"
+	export CASA_BASE_DIR="$SOFTDIR/CASA"
+	export CASA_INSTALL_DIR="$CASA_BASE_DIR/v$CASA_VERSION"
+	export CASASRC="$CASA_BASE_DIR/.casa"
+	export CASA_LOGON_FILE="$CASASRC/init.py"
+
+	echo "Creating CASA base dir $CASA_BASE_DIR ..."
+	mkdir -p $CASA_BASE_DIR
+
+	echo "Creating CASA init dir $CASASRC with other write permission..."
+	mkdir -p $CASASRC
+	chmod -R a+rwx $CASASRC
+
+	# Download & Unzip CASA
+	ls -la $SOFTDIR_SRCS
+	if [ ! -d "$CASA_INSTALL_DIR" ] ; then
+		# Download CASA
+		echo "Downloading CASA from url $CASA_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "casa$CASA_VERSION.tar.gz" "$CASA_URL" 
+	
+		# Untar CASA
+		echo "Untar CASA in casa install directory $CASA_BASE_DIR ..."
+		cd "$CASA_BASE_DIR"
+		tar -xzvf "$SOFTDIR_TAR/casa$CASA_VERSION.tar.gz"
+	
+		# Rename CASA
+		echo "Renaming untar dir $CASA_UNTAR_DIR in v$CASA_VERSION"
+		mv "$CASA_UNTAR_DIR" "v$CASA_VERSION"
+	fi 
+
+	# Setting environment variables
+	echo "Setting CASA env variables..."
+	echo "export CASAPATH=$CASA_INSTALL_DIR" >> $SINGULARITY_ENVIRONMENT
+	echo "export CASA_DIR=$CASA_INSTALL_DIR" >> $SINGULARITY_ENVIRONMENT
+	echo "export CASASRC=$CASASRC" >> $SINGULARITY_ENVIRONMENT
+	export PATH=$CASA_INSTALL_DIR/bin:$PATH
+	export PYTHONPATH=$CASA_INSTALL_DIR/lib/python2.7:$CASA_INSTALL_DIR/lib/python2.7/__casac__:$PYTHONPATH
+	
+	echo '### CASA ###' >> "$SETVARS_FILE"
+	echo 'export CASAPATH='"$CASA_INSTALL_DIR" >> "$SETVARS_FILE"
+	echo 'export CASA_DIR='"$CASA_INSTALL_DIR" >> "$SETVARS_FILE"
+	echo 'export CASASRC='"$CASASRC" >> "$SETVARS_FILE"
+	echo 'export PATH=$CASA_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export PYTHONPATH=$CASA_INSTALL_DIR/lib/python2.7:$PYTHONPATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	# Create logon file under $CASASRC dir
+	echo "Creating CASA logon file in $CASASRC dir ..."
+	echo 'import sys' > "$CASA_LOGON_FILE"
+	echo "sys.path = [''] + sys.path" >> "$CASA_LOGON_FILE"
+
+	echo "Remove CASA tar file $SOFTDIR_TAR/casa$CASA_VERSION.tar.gz ..."
+	rm -rf $SOFTDIR_TAR/casa$CASA_VERSION.tar.gz || :
+
+	#################################
+	###   CASA CORE
+	#################################
+	## Install dependencies
+	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
+
+	## Install optional dependencies
+	##apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.4-dev libpython2.7-dev
+
+	## Create install dir
+	export CASACORE_DATA_URL="ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar"
+	export CASACORE_VERSION="3.0.0"
+	export CASACORE_URL="https://github.com/casacore/casacore/archive/v$CASACORE_VERSION.tar.gz"
+	export CASACORE_SRC_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION"
+	export CASACORE_INSTALL_DIR="$SOFTDIR/LIB/casacore/v$CASACORE_VERSION"
+	export CASACORE_BUILD_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION-build"
+	export CASACORE_DATA_DIR="$SOFTDIR/LIB/casacore/data"
+
+	echo "Creating casacore install dir $CASACORE_INSTALL_DIR & build dir $CASACORE_BUILD_DIR ..."
+	mkdir -p $CASACORE_INSTALL_DIR
+	mkdir -p $CASACORE_BUILD_DIR
+	mkdir -p $CASACORE_DATA_DIR
+	
+	# Downloading casacore data
+	echo "Downloading casacore data from url $CASACORE_DATA_URL ..."
+	cd "$SOFTDIR_TAR"
+	wget -nc -O "WSRT_Measures.ztar" "$CASACORE_DATA_URL"
+	
+	echo "Untar casacore data in dir $CASACORE_DATA_DIR ..."
+	cd "$CASACORE_DATA_DIR"
+	tar -xzvf "$SOFTDIR_TAR/WSRT_Measures.ztar"
+	
+	# Download casacore
+	if [ ! -d "$CASACORE_SRC_DIR" ] ; then
+		# Download casacore
+		echo "Downloading casacore from url $CASACORE_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "casacore$CASACORE_VERSION.tar.gz" "$CASACORE_URL" 
+	
+		# Untar casacore
+		echo "Untar casacore in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/casacore$CASACORE_VERSION.tar.gz"
+	fi 
+	
+
+	
+	#################################
+	###   AOFLAGGER
+	#################################
+	## Install dependencies
+	apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
+
+	
+
+	#################################
+	###    SET ENV VARS
+	#################################
+	echo "export PATH=$PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export PYTHONPATH=$PYTHONPATH" >> $SINGULARITY_ENVIRONMENT
+
+
+
+%runscript
+	printenv
