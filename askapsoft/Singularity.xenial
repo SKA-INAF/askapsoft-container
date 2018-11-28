@@ -25,7 +25,7 @@ From: askapsoft_base.simg
 	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/Sources
 
 %files
-	askapsoft-CP-0.21.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.21.0.tar.gz
+	files/askapsoft-CP-0.21.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.21.0.tar.gz
 	
 %post
 
@@ -70,15 +70,38 @@ From: askapsoft_base.simg
 	unset PYTHONPATH ## Need otherwise virtualenv fails
 	/usr/bin/python bootstrap.py -n
 
+	
+	#################################
+	###    SETVARS ASKAPSOFT
+	#################################
 	echo "Loading askapsoft env vars ..."
 	cd "$ASKAPSOFT_SRC_DIR"
 	ls -la $ASKAPSOFT_SRC_DIR
-	. $ASKAPSOFT_SRC_DIR/initaskap.sh
-	
+	##. $ASKAPSOFT_SRC_DIR/initaskap.sh
+	##sh $ASKAPSOFT_SRC_DIR/initaskap.sh
+
+	export ASKAP_ROOT="$ASKAPSOFT_SRC_DIR"
+	export RBUILD_REMOTE_ARCHIVE="https://www.atnf.csiro.au/computing/software/askapsoft/sdp/archives/"
+	export PYTHONPATH="${ASKAP_ROOT}/share/scons_tools:$PYTHONPATH"
+	export PATH="${ASKAP_ROOT}/bin:${PATH}"
+	##export PS1="(askap)${PS1}"
+	MANPATH=`echo $MANPATH | sed "s#$ASKAP_ROOT/man:##"`
+	MANPATH="${ASKAP_ROOT}/man:${MANPATH}"
+	export MANPATH
+	export ARTISTIC_STYLE_OPTIONS="${ASKAP_ROOT}/astylerc"
+	export PYLINTRC="${ASKAP_ROOT}/pylintrc"
+	export ANT_HOME="${ASKAP_ROOT}/share/ant"
+
+
+	#################################
+	###    BUILD ASKAPSOFT
+	#################################
 	echo "Building askapsoft ..."
 	rbuild -S -a
 
-	### INSTALL RELEASES
+	#################################
+	###    INSTALL ASKAPSOFT RELEASES
+	#################################
 	 
 
 	## CPPAPS

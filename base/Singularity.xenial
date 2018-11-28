@@ -91,7 +91,7 @@ From: ubuntu:16.04
 	###    DEVTOOLS & SYS TOOLS
 	#################################		
 	# Install devel tools
-	apt-get -y --no-install-recommends install gfortran g++ gcc binutils libtool pkg-config build-essential autoconf automake dpkg-dev git cmake scons subversion libreadline-dev libncurses5-dev
+	apt-get -y --no-install-recommends install gfortran g++ gcc binutils libtool pkg-config build-essential autoconf automake dpkg-dev git cmake scons subversion libreadline-dev libncurses5-dev libdbus-1-3 libdbus-1-dev 
 	
 	# Set LD_LIBRARY_PATH
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
@@ -165,16 +165,21 @@ From: ubuntu:16.04
 	###   TCL + ENV MODULES (needed for modules)
 	#################################
 	apt-get -y --no-install-recommends install tcl8.5-dev tclx environment-modules
-	
-	
 
+	echo "Create modulefile dir ..."
+	export MODULEFILE_DIR="/opt/modulefiles"
+	mkdir -p "$MODULEFILE_DIR"
+	echo "export MODULEPATH=$MODULEFILE_DIR" >> $SINGULARITY_ENVIRONMENT
+	
+	
 	#################################
 	###    OPENMPI
 	#################################
 	export OPENMPI_VERSION="2.1.2"
 	export OPENMPI_URL="https://www.open-mpi.org/software/ompi/v2.1/downloads/openmpi-$OPENMPI_VERSION.tar.gz"
 	export OPENMPI_SRC_DIR="$SOFTDIR_SRCS/openmpi-$OPENMPI_VERSION"	
-	export OPENMPI_INSTALL_DIR="$SOFTDIR/LIB/openmpi/v$OPENMPI_VERSION"
+	##export OPENMPI_INSTALL_DIR="$SOFTDIR/LIB/openmpi/v$OPENMPI_VERSION"
+	export OPENMPI_INSTALL_DIR="$SOFTDIR/openmpi/v$OPENMPI_VERSION"
 	echo "Creating openmpi install dir $OPENMPI_INSTALL_DIR ..."
 	mkdir -p $OPENMPI_INSTALL_DIR
 
@@ -218,6 +223,237 @@ From: ubuntu:16.04
 	#rm -rf $OPENMPI_SRC_DIR
 	#echo "Remove OPENMPI tar file $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz ..."
 	#rm -rf $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz || :
+
+	#################################
+	###   CASA CORE
+	#################################
+	## Install dependencies
+	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
+
+	## Install optional dependencies
+	apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.5-dev libpython2.7-dev
+
+	## Create install dir
+	export CASACORE_DATA_URL="ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar"
+	export CASACORE_VERSION="3.0.0"
+	export CASACORE_URL="https://github.com/casacore/casacore/archive/v$CASACORE_VERSION.tar.gz"
+	export CASACORE_SRC_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION"
+	##export CASACORE_INSTALL_DIR="$SOFTDIR/LIB/casacore/v$CASACORE_VERSION"
+	export CASACORE_INSTALL_DIR="$SOFTDIR/casacore/v$CASACORE_VERSION"
+	export CASACORE_BUILD_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION-build"
+	##export CASACORE_DATA_DIR="$SOFTDIR/LIB/casacore/data"
+	export CASACORE_DATA_DIR="$SOFTDIR/casacore/data"
+
+	echo "Creating casacore install dir $CASACORE_INSTALL_DIR & build dir $CASACORE_BUILD_DIR ..."
+	mkdir -p "$CASACORE_INSTALL_DIR"
+	mkdir -p "$CASACORE_BUILD_DIR"
+	mkdir -p "$CASACORE_DATA_DIR"
+	
+	# Downloading casacore data
+	echo "Downloading casacore data from url $CASACORE_DATA_URL ..."
+	cd "$SOFTDIR_TAR"
+	wget -nc -O "WSRT_Measures.ztar" "$CASACORE_DATA_URL"
+	
+	echo "Untar casacore data in dir $CASACORE_DATA_DIR ..."
+	cd "$CASACORE_DATA_DIR"
+	tar -xzvf "$SOFTDIR_TAR/WSRT_Measures.ztar"
+	
+	# Download casacore
+	if [ ! -d "$CASACORE_SRC_DIR" ] ; then
+		# Download casacore
+		echo "Downloading casacore from url $CASACORE_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "casacore$CASACORE_VERSION.tar.gz" "$CASACORE_URL" 
+	
+		# Untar casacore
+		echo "Untar casacore in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/casacore$CASACORE_VERSION.tar.gz"
+	fi 
+	
+	# Build casacore
+	echo "Configure casacore build ..."
+	cd "$CASACORE_BUILD_DIR"
+	cmake -DCMAKE_INSTALL_PREFIX="$CASACORE_INSTALL_DIR" -DCXX11=ON -DUSE_FFTW3=ON -DDATA_DIR="$CASACORE_DATA_DIR" -DUSE_OPENMP=ON -DUSE_HDF5=ON -DBUILD_PYTHON=ON -DUSE_THREADS=ON $CASACORE_SRC_DIR
+	
+	echo "Building casacore ..."
+	make
+
+	echo "Installing casacore ..."
+	make install
+
+
+	# Setting environment variables
+	echo "Setting CASACORE env variables..."
+	export PATH=$CASACORE_INSTALL_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
+	
+	echo '### CASA CORE ###' >> "$SETVARS_FILE"
+	echo 'export PATH=$CASACORE_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+
+
+
+	# Setting module
+	CASACORE_MODULE_DIR="/opt/modulefiles/casacore"
+	CASACORE_MODULE_FILE="$CASACORE_MODULE_DIR/$CASACORE_VERSION"
+	CASACORE_MODULE_VERSION_FILE="$CASACORE_MODULE_DIR/.version"
+	mkdir -p "$CASACORE_MODULE_DIR"
+
+		
+	echo '#%Module######################################################################' > "$CASACORE_MODULE_FILE"
+	echo '#' >> "$CASACORE_MODULE_FILE"
+	echo '# casacore modulefile' >> "$CASACORE_MODULE_FILE"
+	echo '#' >> "$CASACORE_MODULE_FILE"
+	echo 'proc ModulesHelp { } {' >> "$CASACORE_MODULE_FILE"
+  echo 'puts stderr "Sets up the paths you need to use casacore version '"$CASACORE_VERSION"'"' >> "$CASACORE_MODULE_FILE"
+  echo '}' >> "$CASACORE_MODULE_FILE"
+	echo 'set sys     [uname sysname]' >> "$CASACORE_MODULE_FILE"
+	echo "set version $CASACORE_VERSION" >> "$CASACORE_MODULE_FILE"
+  echo 'set tool    casacore' >> "$CASACORE_MODULE_FILE"
+	echo 'module-whatis "The casacore package contains the core libraries of the old AIPS++/CASA package.' >> "$CASACORE_MODULE_FILE"
+  echo 'This split was made to get a better separation of core libraries and' >> "$CASACORE_MODULE_FILE"
+  echo 'applications. CASA is now built on top of casacore.' >> "$CASACORE_MODULE_FILE"
+  echo 'Because of Casacore not being thread safe, it is not linked with Cray-LibSci. Instead it is built with Lapack.' >> "$CASACORE_MODULE_FILE"
+  echo 'For further information see http://casacore.github.io/casacore/' >> "$CASACORE_MODULE_FILE"
+	echo '"' >> "$CASACORE_MODULE_FILE"
+
+  echo '' >> "$CASACORE_MODULE_FILE"
+
+  echo 'if { [ module-info mode load ] } {' >> "$CASACORE_MODULE_FILE"
+  echo '  if { [is-loaded $tool] && ! [is-loaded $tool/$version] } {' >> "$CASACORE_MODULE_FILE"
+  echo '    module unload $tool' >> "$CASACORE_MODULE_FILE"
+  echo '  }' >> "$CASACORE_MODULE_FILE"
+  echo '}' >> "$CASACORE_MODULE_FILE"
+
+  ## conflict craype-broadwell
+  ## module load cray-mpich
+	## module load cfitsio
+	## module load wcslib
+	## module load cray-hdf5-parallel
+	## module load cray-fftw
+	## module load boost
+	## module load python/2.7.14
+	## module load numpy
+	## module load lapack
+	
+	echo 'if {! [module-info mode whatis] } {' >> "$CASACORE_MODULE_FILE"
+	echo "  setenv       MAALI_CASACORE_HOME $CASACORE_INSTALL_DIR" >> "$CASACORE_MODULE_FILE"
+	echo "  setenv       CASACORE_ROOT $CASACORE_INSTALL_DIR" >> "$CASACORE_MODULE_FILE"
+	echo "  prepend-path LD_LIBRARY_PATH $CASACORE_INSTALL_DIR/lib" >> "$CASACORE_MODULE_FILE"
+	echo "  prepend-path PATH $CASACORE_INSTALL_DIR/bin" >> "$CASACORE_MODULE_FILE"
+	echo '}' >> "$CASACORE_MODULE_FILE"
+
+
+	## Set version module
+	echo '#%Module1.0#####################################################################' > "$CASACORE_MODULE_VERSION_FILE"
+	echo '##' >> "$CASACORE_MODULE_VERSION_FILE"
+	echo 'set ModulesVersion "'"$CASACORE_VERSION"'"' >> "$CASACORE_MODULE_VERSION_FILE"
+	
+
+	#################################
+	###   AOFLAGGER
+	#################################
+	## Install dependencies
+	apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
+
+	## Download
+	export AOFLAGGER_VERSION="2.13.0"
+	export AOFLAGGER_URL="https://sourceforge.net/projects/aoflagger/files/aoflagger-$AOFLAGGER_VERSION/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
+	export AOFLAGGER_SRC_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION"
+	##export AOFLAGGER_INSTALL_DIR="$SOFTDIR/LIB/aoflagger/v$AOFLAGGER_VERSION"
+	export AOFLAGGER_INSTALL_DIR="$SOFTDIR/aoflagger/v$AOFLAGGER_VERSION"
+	export AOFLAGGER_BUILD_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION-build"
+	
+	echo "Creating aoflagger install dir $AOFLAGGER_INSTALL_DIR & build dir $AOFLAGGER_BUILD_DIR ..."
+	mkdir -p "$AOFLAGGER_INSTALL_DIR"
+	mkdir -p "$AOFLAGGER_BUILD_DIR"
+
+	# Download aoflagger
+	if [ ! -d "$AOFLAGGER_SRC_DIR" ] ; then
+		# Download aoflagger
+		echo "Downloading aoflagger from url $AOFLAGGER_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "aoflagger-$AOFLAGGER_VERSION.tar.bz2" "$AOFLAGGER_URL" 
+	
+		# Untar aoflagger
+		echo "Untar aoflagger in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xvf "$SOFTDIR_TAR/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
+	fi 
+	
+	# Build aoflagger
+	echo "Configure aoflagger build ..."
+	cd "$AOFLAGGER_BUILD_DIR"
+	cmake -DCMAKE_INSTALL_PREFIX="$AOFLAGGER_INSTALL_DIR" -DBUILD_SHARED_LIBS=ON -DCMAKE_PREFIX_PATH="$CASACORE_INSTALL_DIR" $AOFLAGGER_SRC_DIR
+	
+	echo "Building aoflagger ..."
+	make
+
+	echo "Installing aoflagger ..."
+	make install	
+
+	# Setting environment variables
+	echo "Setting AOFLAGGER env variables..."
+	export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
+	
+	echo '### AOFLAGGER CORE ###' >> "$SETVARS_FILE"
+	echo 'export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
+	echo 'export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	
+	# Setting module
+	AOFLAGGER_MODULE_DIR="/opt/modulefiles/aoflagger"
+	AOFLAGGER_MODULE_FILE="$AOFLAGGER_MODULE_DIR/$AOFLAGGER_VERSION"
+	AOFLAGGER_MODULE_VERSION_FILE="$AOFLAGGER_MODULE_DIR/.version"
+	mkdir -p "$AOFLAGGER_MODULE_DIR"
+
+	echo '#%Module######################################################################' > "$AOFLAGGER_MODULE_FILE"
+	echo '#' >> "$AOFLAGGER_MODULE_FILE" >> "$AOFLAGGER_MODULE_FILE"
+	echo '# aoflagger modulefile' >> "$AOFLAGGER_MODULE_FILE" 
+	echo '#' >> "$AOFLAGGER_MODULE_FILE" 
+	echo 'proc ModulesHelp { } {' >> "$AOFLAGGER_MODULE_FILE" 
+  echo '  puts stderr "Sets up the paths you need to use aoflagger"' >> "$AOFLAGGER_MODULE_FILE" 
+	echo '}' >> "$AOFLAGGER_MODULE_FILE" 
+
+	echo '' >> "$AOFLAGGER_MODULE_FILE" 
+	echo 'set sys     [uname sysname]' >> "$AOFLAGGER_MODULE_FILE" 
+	echo "set version $AOFLAGGER_VERSION" >> "$AOFLAGGER_MODULE_FILE"
+	echo 'set tool    aoflagger' >> "$AOFLAGGER_MODULE_FILE" 
+	echo 'module-whatis "The AOFlagger is a flagger framework that implements several methods to deal with radio-frequency interference or RFI.' >> "$AOFLAGGER_MODULE_FILE" 
+  echo 'For further information see https://sourceforge.net/p/aoflagger/wiki/Home/' >> "$AOFLAGGER_MODULE_FILE"
+	echo '"' >> "$AOFLAGGER_MODULE_FILE"
+	
+	echo '' >> "$AOFLAGGER_MODULE_FILE"
+
+	echo 'if { [ module-info mode load ] } {' >> "$AOFLAGGER_MODULE_FILE"
+	echo '  if { [is-loaded $tool] && ! [is-loaded $tool/$version] } {' >> "$AOFLAGGER_MODULE_FILE"
+  echo '    module unload $tool' >> "$AOFLAGGER_MODULE_FILE"
+  echo '  }' >> "$AOFLAGGER_MODULE_FILE"
+	echo '}' >> "$AOFLAGGER_MODULE_FILE"
+
+  echo '' >> "$AOFLAGGER_MODULE_FILE"
+
+	echo 'module load casacore' >> "$AOFLAGGER_MODULE_FILE"
+
+  echo 'if {! [module-info mode whatis] } {' >> "$AOFLAGGER_MODULE_FILE"
+  echo "  setenv       MAALI_AOFLAGGER_HOME $AOFLAGGER_INSTALL_DIR" >> "$AOFLAGGER_MODULE_FILE"
+	echo "  setenv       AOFLAGGER_ROOT $AOFLAGGER_INSTALL_DIR" >> "$AOFLAGGER_MODULE_FILE"
+  echo "  prepend-path LD_LIBRARY_PATH $AOFLAGGER_INSTALL_DIR/lib" >> "$AOFLAGGER_MODULE_FILE"
+  echo "  prepend-path PATH $AOFLAGGER_INSTALL_DIR/bin" >> "$AOFLAGGER_MODULE_FILE"
+  echo '}' >> "$AOFLAGGER_MODULE_FILE"
+
+	## Set version module
+	echo '#%Module1.0#####################################################################' > "$AOFLAGGER_MODULE_VERSION_FILE"
+	echo '##' >> "$AOFLAGGER_MODULE_VERSION_FILE"
+	echo 'set ModulesVersion "'"$AOFLAGGER_VERSION"'"' >> "$AOFLAGGER_MODULE_VERSION_FILE"
+	
+
+
 
 	#################################
 	###    CASA NRAO
@@ -280,123 +516,46 @@ From: ubuntu:16.04
 	echo "Remove CASA tar file $SOFTDIR_TAR/casa$CASA_VERSION.tar.gz ..."
 	rm -rf $SOFTDIR_TAR/casa$CASA_VERSION.tar.gz || :
 
-	#################################
-	###   CASA CORE
-	#################################
-	## Install dependencies
-	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
+	
+	# Setting env module
+	CASA_MODULE_DIR="/opt/modulefiles/casa"
+	CASA_MODULE_FILE="$CASA_MODULE_DIR/$CASA_VERSION"
+	CASA_MODULE_VERSION_FILE="$CASA_MODULE_DIR/.version"
+	mkdir -p "$CASA_MODULE_DIR"
 
-	## Install optional dependencies
-	apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.4-dev libpython2.7-dev
+	
+	echo '#%Module1.0#####################################################################' > "$CASA_MODULE_FILE"
+	echo '##' >> "$CASA_MODULE_FILE"
+	echo '## CASA modulefile' >> "$CASA_MODULE_FILE"
+	echo '##' >> "$CASA_MODULE_FILE"
+	echo 'proc ModulesHelp { } {' >> "$CASA_MODULE_FILE"
+  echo '  global version' >> "$CASA_MODULE_FILE"
+	echo '  puts stderr "\tThis modules provides the CASA (Common Astronomy Software"' >> "$CASA_MODULE_FILE"
+  echo '  puts stderr "\tApplications) package."' >> "$CASA_MODULE_FILE"
+  echo '  puts stderr "\tSee http://casa.nrao.edu/ for further information"' >> "$CASA_MODULE_FILE"
+	echo '}' >> "$CASA_MODULE_FILE"
+	echo '' >> "$CASA_MODULE_FILE"
+	echo '# No two versions of this module can be loaded simultaneously' >> "$CASA_MODULE_FILE"
+	echo 'conflict        casa' >> "$CASA_MODULE_FILE"
+	echo '' >> "$CASA_MODULE_FILE"
+	echo 'module-whatis   "CASA software package"' >> "$CASA_MODULE_FILE"
+	echo "set CASA_HOME   $CASA_INSTALL_DIR" >> "$CASA_MODULE_FILE"
+	echo 'prepend-path    PATH    $CASA_HOME/lib/casa/bin' >> "$CASA_MODULE_FILE"
 
-	## Create install dir
-	export CASACORE_DATA_URL="ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar"
-	export CASACORE_VERSION="3.0.0"
-	export CASACORE_URL="https://github.com/casacore/casacore/archive/v$CASACORE_VERSION.tar.gz"
-	export CASACORE_SRC_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION"
-	export CASACORE_INSTALL_DIR="$SOFTDIR/LIB/casacore/v$CASACORE_VERSION"
-	export CASACORE_BUILD_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION-build"
-	export CASACORE_DATA_DIR="$SOFTDIR/LIB/casacore/data"
+	echo 'setenv PGPLOT_FONT $CASA_HOME/lib/pgplot/grfont.dat' >> "$CASA_MODULE_FILE"
+	echo 'setenv CASAPATH $CASA_HOME' >> "$CASA_MODULE_FILE"
+	echo 'setenv CASA_INSTALLATION_TYPE tar-installation' >> "$CASA_MODULE_FILE"
 
-	echo "Creating casacore install dir $CASACORE_INSTALL_DIR & build dir $CASACORE_BUILD_DIR ..."
-	mkdir -p "$CASACORE_INSTALL_DIR"
-	mkdir -p "$CASACORE_BUILD_DIR"
-	mkdir -p "$CASACORE_DATA_DIR"
-	
-	# Downloading casacore data
-	echo "Downloading casacore data from url $CASACORE_DATA_URL ..."
-	cd "$SOFTDIR_TAR"
-	wget -nc -O "WSRT_Measures.ztar" "$CASACORE_DATA_URL"
-	
-	echo "Untar casacore data in dir $CASACORE_DATA_DIR ..."
-	cd "$CASACORE_DATA_DIR"
-	tar -xzvf "$SOFTDIR_TAR/WSRT_Measures.ztar"
-	
-	# Download casacore
-	if [ ! -d "$CASACORE_SRC_DIR" ] ; then
-		# Download casacore
-		echo "Downloading casacore from url $CASACORE_URL ..."
-		cd "$SOFTDIR_TAR"
-		wget -nc -O "casacore$CASACORE_VERSION.tar.gz" "$CASACORE_URL" 
-	
-		# Untar casacore
-		echo "Untar casacore in source directory $SOFTDIR_SRCS ..."
-		cd "$SOFTDIR_SRCS"
-		tar -xzvf "$SOFTDIR_TAR/casacore$CASACORE_VERSION.tar.gz"
-	fi 
-	
-	# Build casacore
-	echo "Configure casacore build ..."
-	cd "$CASACORE_BUILD_DIR"
-	cmake -DCMAKE_INSTALL_PREFIX="$CASACORE_INSTALL_DIR" -DCXX11=ON -DUSE_FFTW3=ON -DDATA_DIR="$CASACORE_DATA_DIR" -DUSE_OPENMP=ON -DUSE_HDF5=ON -DBUILD_PYTHON=ON -DUSE_THREADS=ON $CASACORE_SRC_DIR
-	
-	echo "Building casacore ..."
-	make
-
-	echo "Installing casacore ..."
-	make install
+	echo '# Point to the right places for TCL/TK' >> "$CASA_MODULE_FILE"
+	echo 'setenv TCL_LIBRARY $CASA_HOME/share/tcl' >> "$CASA_MODULE_FILE"
+	echo 'setenv TK_LIBRARY $CASA_HOME/share/tk' >> "$CASA_MODULE_FILE"
 
 
-	# Setting environment variables
-	echo "Setting CASACORE env variables..."
-	export PATH=$CASACORE_INSTALL_DIR/bin:$PATH
-	export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
+	## Set version module
+	echo '#%Module1.0#####################################################################' > "$CASA_MODULE_VERSION_FILE"
+	echo '##' >> "$CASA_MODULE_VERSION_FILE"
+	echo 'set ModulesVersion "'"$CASA_VERSION"'"' >> "$CASA_MODULE_VERSION_FILE"
 	
-	echo '### CASA CORE ###' >> "$SETVARS_FILE"
-	echo 'export PATH=$CASACORE_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
-	echo 'export LD_LIBRARY_PATH=$CASACORE_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
-	echo '' >> "$SETVARS_FILE"
-	
-	#################################
-	###   AOFLAGGER
-	#################################
-	## Install dependencies
-	apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
-
-	## Download
-	export AOFLAGGER_VERSION="2.13.0"
-	export AOFLAGGER_URL="https://sourceforge.net/projects/aoflagger/files/aoflagger-$AOFLAGGER_VERSION/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
-	export AOFLAGGER_SRC_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION"
-	export AOFLAGGER_INSTALL_DIR="$SOFTDIR/LIB/aoflagger/v$AOFLAGGER_VERSION"
-	export AOFLAGGER_BUILD_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION-build"
-	
-	echo "Creating aoflagger install dir $AOFLAGGER_INSTALL_DIR & build dir $AOFLAGGER_BUILD_DIR ..."
-	mkdir -p "$AOFLAGGER_INSTALL_DIR"
-	mkdir -p "$AOFLAGGER_BUILD_DIR"
-
-	# Download aoflagger
-	if [ ! -d "$AOFLAGGER_SRC_DIR" ] ; then
-		# Download aoflagger
-		echo "Downloading aoflagger from url $AOFLAGGER_URL ..."
-		cd "$SOFTDIR_TAR"
-		wget -nc -O "aoflagger-$AOFLAGGER_VERSION.tar.bz2" "$AOFLAGGER_URL" 
-	
-		# Untar aoflagger
-		echo "Untar aoflagger in source directory $SOFTDIR_SRCS ..."
-		cd "$SOFTDIR_SRCS"
-		tar -xvf "$SOFTDIR_TAR/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
-	fi 
-	
-	# Build aoflagger
-	echo "Configure aoflagger build ..."
-	cd "$AOFLAGGER_BUILD_DIR"
-	cmake -DCMAKE_INSTALL_PREFIX="$AOFLAGGER_INSTALL_DIR" -DBUILD_SHARED_LIBS=ON -DCMAKE_PREFIX_PATH="$CASACORE_INSTALL_DIR" $AOFLAGGER_SRC_DIR
-	
-	echo "Building aoflagger ..."
-	make
-
-	echo "Installing aoflagger ..."
-	make install	
-
-	# Setting environment variables
-	echo "Setting AOFLAGGER env variables..."
-	export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH
-	export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH	
-	
-	echo '### AOFLAGGER CORE ###' >> "$SETVARS_FILE"
-	echo 'export PATH=$AOFLAGGER_INSTALL_DIR/bin:$PATH' >> "$SETVARS_FILE"
-	echo 'export LD_LIBRARY_PATH=$AOFLAGGER_INSTALL_DIR/lib:$LD_LIBRARY_PATH' >> "$SETVARS_FILE"
-	echo '' >> "$SETVARS_FILE"
 
 	#################################
 	###    SET ENV VARS
