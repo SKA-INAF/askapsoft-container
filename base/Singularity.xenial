@@ -178,7 +178,6 @@ From: ubuntu:16.04
 	export OPENMPI_VERSION="2.1.2"
 	export OPENMPI_URL="https://www.open-mpi.org/software/ompi/v2.1/downloads/openmpi-$OPENMPI_VERSION.tar.gz"
 	export OPENMPI_SRC_DIR="$SOFTDIR_SRCS/openmpi-$OPENMPI_VERSION"	
-	##export OPENMPI_INSTALL_DIR="$SOFTDIR/LIB/openmpi/v$OPENMPI_VERSION"
 	export OPENMPI_INSTALL_DIR="$SOFTDIR/openmpi/v$OPENMPI_VERSION"
 	echo "Creating openmpi install dir $OPENMPI_INSTALL_DIR ..."
 	mkdir -p $OPENMPI_INSTALL_DIR
@@ -238,10 +237,8 @@ From: ubuntu:16.04
 	export CASACORE_VERSION="3.0.0"
 	export CASACORE_URL="https://github.com/casacore/casacore/archive/v$CASACORE_VERSION.tar.gz"
 	export CASACORE_SRC_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION"
-	##export CASACORE_INSTALL_DIR="$SOFTDIR/LIB/casacore/v$CASACORE_VERSION"
 	export CASACORE_INSTALL_DIR="$SOFTDIR/casacore/v$CASACORE_VERSION"
 	export CASACORE_BUILD_DIR="$SOFTDIR_SRCS/casacore-$CASACORE_VERSION-build"
-	##export CASACORE_DATA_DIR="$SOFTDIR/LIB/casacore/data"
 	export CASACORE_DATA_DIR="$SOFTDIR/casacore/data"
 
 	echo "Creating casacore install dir $CASACORE_INSTALL_DIR & build dir $CASACORE_BUILD_DIR ..."
@@ -363,7 +360,6 @@ From: ubuntu:16.04
 	export AOFLAGGER_VERSION="2.13.0"
 	export AOFLAGGER_URL="https://sourceforge.net/projects/aoflagger/files/aoflagger-$AOFLAGGER_VERSION/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
 	export AOFLAGGER_SRC_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION"
-	##export AOFLAGGER_INSTALL_DIR="$SOFTDIR/LIB/aoflagger/v$AOFLAGGER_VERSION"
 	export AOFLAGGER_INSTALL_DIR="$SOFTDIR/aoflagger/v$AOFLAGGER_VERSION"
 	export AOFLAGGER_BUILD_DIR="$SOFTDIR_SRCS/aoflagger-$AOFLAGGER_VERSION-build"
 	
@@ -462,7 +458,7 @@ From: ubuntu:16.04
 	export CASA_VERSION_MINOR="68"
 	export CASA_URL="https://casa.nrao.edu/download/distro/linux/release/el7/casa-release-$CASA_VERSION-$CASA_VERSION_MINOR"'.el7.tar.gz'
 	export CASA_UNTAR_DIR="casa-release-$CASA_VERSION-$CASA_VERSION_MINOR.el7"
-	export CASA_BASE_DIR="$SOFTDIR/CASA"
+	export CASA_BASE_DIR="$SOFTDIR/casa"
 	export CASA_INSTALL_DIR="$CASA_BASE_DIR/v$CASA_VERSION"
 	export CASASRC="$CASA_BASE_DIR/.casa"
 	export CASA_LOGON_FILE="$CASASRC/init.py"
