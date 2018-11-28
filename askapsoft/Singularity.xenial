@@ -94,6 +94,13 @@ From: askapsoft_base.simg
 
 
 	#################################
+	###    FIX BUILD ISSUES
+	#################################
+	## Add gfortran dependency in Code/Base/imagemath/
+	echo 'gfortran=/usr/lib/x86_64-linux-gnu/;gfortran' >> "$ASKAPSOFT_SRC_DIR/Code/Base/imagemath/current/dependencies.default"
+
+
+	#################################
 	###    BUILD ASKAPSOFT
 	#################################
 	echo "Building askapsoft ..."
