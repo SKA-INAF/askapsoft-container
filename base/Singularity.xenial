@@ -554,6 +554,50 @@ From: ubuntu:16.04
 	
 
 	#################################
+	###    CASA CORE PYTHON
+	#################################
+  ## Install dependencies
+	apt-get -y --no-install-recommends install python-setuptools libboost-python-dev libcfitsio3-dev wcslib-dev
+
+	## Create install dir
+	export CASACORE_PYTHON_VERSION="3.0.0"
+	export CASACORE_PYTHON_URL="https://github.com/casacore/python-casacore/archive/v$CASACORE_PYTHON_VERSION.tar.gz"
+	export CASACORE_PYTHON_SRC_DIR="$SOFTDIR_SRCS/python-casacore-$CASACORE_PYTHON_VERSION"
+	export CASACORE_PYTHON_INSTALL_DIR="$SOFTDIR/python-casacore/v$CASACORE_PYTHON_VERSION"
+	
+	echo "Creating python casacore install dir $CASACORE_PYTHON_INSTALL_DIR ..."
+	mkdir -p "$CASACORE_PYTHON_INSTALL_DIR"
+	
+	# Download python casacore
+	if [ ! -d "$CASACORE_PYTHON_SRC_DIR" ] ; then
+		# Download python casacore
+		echo "Downloading python casacore from url $CASACORE_PYTHON_URL ..."
+		cd "$SOFTDIR_TAR"
+		wget -nc -O "python-casacore$CASACORE_PYTHON_VERSION.tar.gz" "$CASACORE_PYTHON_URL" 
+	
+		# Untar python casacore
+		echo "Untar python casacore in source directory $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/python-casacore$CASACORE_PYTHON_VERSION.tar.gz"
+	fi 
+	
+	# Build python casacore
+	echo "Building python casacore ..."
+	cd "$CASACORE_PYTHON_SRC_DIR"
+	CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py build
+	
+	# Install python casacore
+	echo "Installing python casacore ..."
+  export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages/:$PYTHONPATH
+	CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py install --prefix=$CASACORE_PYTHON_INSTALL_DIR
+	
+	# Setting environment variables
+	echo '### PYTHON CASA CORE ###' >> "$SETVARS_FILE"
+	echo 'export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages:$PYTHONPATH' >> "$SETVARS_FILE"
+	echo '' >> "$SETVARS_FILE"
+
+	
+	#################################
 	###    SET ENV VARS
 	#################################
 	echo "export PATH=$PATH" >> $SINGULARITY_ENVIRONMENT
