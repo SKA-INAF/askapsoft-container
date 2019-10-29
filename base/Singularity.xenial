@@ -149,11 +149,22 @@ From: ubuntu:16.04
 	# Install some sys tools
 	apt-get -y --no-install-recommends install wget bzip2 nano unzip locate less
 
-	#################################
-	###    BOOST LIBRARIES
-	#################################
-	# Install boost (in Ubuntu 16 version 1.58)
-	apt-get -y --no-install-recommends install libboost-all-dev
+	# Install some mpi lib
+	apt-get -y --no-install-recommends install openssh-client libnuma-dev libnuma1	
+
+	## Install CASA dependencies
+	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
+
+	## Install optional CASA dependencies
+	##apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.5-dev libpython2.7-dev
+	apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libpython3.5-dev libpython2.7-dev
+	
+	## Install CASA python dependencies
+	###apt-get -y --no-install-recommends install python-setuptools libboost-python-dev libcfitsio3-dev wcslib-dev
+
+	## Install AOFLAGGER dependencies
+	apt-get -y --no-install-recommends install libfftw3-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
+
 
 	#################################
 	###    GSL LIBRARIES
@@ -170,17 +181,57 @@ From: ubuntu:16.04
 	export MODULEFILE_DIR="/opt/modulefiles"
 	mkdir -p "$MODULEFILE_DIR"
 	echo "export MODULEPATH=$MODULEFILE_DIR" >> $SINGULARITY_ENVIRONMENT
+
+	#################################
+	###    BOOST LIBRARIES
+	#################################
+	# Install boost (in Ubuntu 16 version 1.58)
+	#apt-get -y --no-install-recommends install libboost-all-dev
+
+	##export BOOST_VERSION="1.58.0"	
+	##export BOOST_URL="https://sourceforge.net/projects/boost/files/boost/$BOOST_VERSION/boost_1_58_0.tar.gz/download"
+	export BOOST_VERSION="1.64.0"	
+	export BOOST_URL="https://sourceforge.net/projects/boost/files/boost/$BOOST_VERSION/boost_1_64_0.tar.gz/download"
 	
 	
+	# Downloading boost
+	echo "Downloading boost from url $BOOST_URL ..."
+	cd "$SOFTDIR_TAR"
+	##wget -O boost_1_58_0.tar.gz "$BOOST_URL"
+	wget -O boost_1_64_0.tar.gz "$BOOST_URL"
+
+	# Untar boost
+	echo "Untar boost in source directory $SOFTDIR_SRCS ..."
+	cd "$SOFTDIR_SRCS"
+	##tar -xzvf "$SOFTDIR_TAR/boost_1_58_0.tar.gz"
+	tar -xzvf "$SOFTDIR_TAR/boost_1_64_0.tar.gz"
+	
+	# Configure boost
+	echo "Configuring boost build ..."
+	##cd "$SOFTDIR_SRCS/boost_1_58_0"
+	cd "$SOFTDIR_SRCS/boost_1_64_0"
+	./bootstrap.sh --prefix=/usr
+
+	# Build and install
+	echo "Building and installing boost ..."
+	./b2 install
+	
+
 	#################################
 	###    OPENMPI
 	#################################
 	export OPENMPI_VERSION="2.1.2"
 	export OPENMPI_URL="https://www.open-mpi.org/software/ompi/v2.1/downloads/openmpi-$OPENMPI_VERSION.tar.gz"
 	export OPENMPI_SRC_DIR="$SOFTDIR_SRCS/openmpi-$OPENMPI_VERSION"	
-	export OPENMPI_INSTALL_DIR="$SOFTDIR/openmpi/v$OPENMPI_VERSION"
-	echo "Creating openmpi install dir $OPENMPI_INSTALL_DIR ..."
-	mkdir -p $OPENMPI_INSTALL_DIR
+	##export OPENMPI_INSTALL_DIR="$SOFTDIR/openmpi/v$OPENMPI_VERSION"
+	##export OPENMPI_INSTALL_DIR="/usr/local/"
+	export OPENMPI_INSTALL_DIR="/usr/"
+	##echo "Creating openmpi install dir $OPENMPI_INSTALL_DIR ..."
+	##mkdir -p $OPENMPI_INSTALL_DIR
+
+	# Removing previous MPI version
+	echo "Removing previous MPI system version ..."
+	apt-get -y remove libopenmpi-dev mpi-default-bin mpi-default-dev openmpi-bin openmpi-common
 
 	# Install openmpi
 	if [ ! -d "$OPENMPI_SRC_DIR" ] ; then
@@ -200,12 +251,13 @@ From: ubuntu:16.04
 
 	echo "Configuring openmpi build..."
 	./configure --prefix="$OPENMPI_INSTALL_DIR"
+	###./configure
 
 	echo "Building & installing openmpi..."
 	make all install
 
-	## NB: Prepend OPENMPI to system path to allow CAESAR find these instead of system version
-	echo "Setting up env variables for mpich..."
+	## NB: Prepend OPENMPI to system path to allow to find these instead of system version
+	echo "Setting up env variables for mpi..."
 	echo "export OPENMPI_DIR=$OPENMPI_INSTALL_DIR" >> $SINGULARITY_ENVIRONMENT
 	export PATH=$OPENMPI_INSTALL_DIR/bin:$PATH
 	export LD_LIBRARY_PATH=$OPENMPI_INSTALL_DIR/lib:$LD_LIBRARY_PATH
@@ -223,14 +275,15 @@ From: ubuntu:16.04
 	#echo "Remove OPENMPI tar file $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz ..."
 	#rm -rf $SOFTDIR_TAR/openmpi$OPENMPI_VERSION.tar.gz || :
 
+	
 	#################################
 	###   CASA CORE
 	#################################
 	## Install dependencies
-	apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
+	##apt-get -y --no-install-recommends install build-essential cmake gfortran g++ libncurses5-dev libreadline-dev flex bison libblas-dev liblapacke-dev libcfitsio3-dev wcslib-dev
 
 	## Install optional dependencies
-	apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.5-dev libpython2.7-dev
+	##apt-get -y --no-install-recommends install libhdf5-serial-dev libfftw3-dev python-numpy libboost-python-dev libpython3.5-dev libpython2.7-dev
 
 	## Create install dir
 	export CASACORE_DATA_URL="ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar"
@@ -354,8 +407,8 @@ From: ubuntu:16.04
 	###   AOFLAGGER
 	#################################
 	## Install dependencies
-	apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
-
+	##apt-get -y --no-install-recommends install libfftw3-dev libboost-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-signals-dev libboost-thread-dev libxml2-dev liblapack-dev libcfitsio-dev libgtkmm-3.0-dev cmake g++ libpng-dev
+	
 	## Download
 	export AOFLAGGER_VERSION="2.13.0"
 	export AOFLAGGER_URL="https://sourceforge.net/projects/aoflagger/files/aoflagger-$AOFLAGGER_VERSION/aoflagger-$AOFLAGGER_VERSION.tar.bz2"
@@ -557,44 +610,44 @@ From: ubuntu:16.04
 	###    CASA CORE PYTHON
 	#################################
   ## Install dependencies
-	apt-get -y --no-install-recommends install python-setuptools libboost-python-dev libcfitsio3-dev wcslib-dev
+	#apt-get -y --no-install-recommends install python-setuptools libboost-python-dev libcfitsio3-dev wcslib-dev
 
 	## Create install dir
-	export CASACORE_PYTHON_VERSION="3.0.0"
-	export CASACORE_PYTHON_URL="https://github.com/casacore/python-casacore/archive/v$CASACORE_PYTHON_VERSION.tar.gz"
-	export CASACORE_PYTHON_SRC_DIR="$SOFTDIR_SRCS/python-casacore-$CASACORE_PYTHON_VERSION"
-	export CASACORE_PYTHON_INSTALL_DIR="$SOFTDIR/python-casacore/v$CASACORE_PYTHON_VERSION"
+	#export CASACORE_PYTHON_VERSION="3.0.0"
+	#export CASACORE_PYTHON_URL="https://github.com/casacore/python-casacore/archive/v$CASACORE_PYTHON_VERSION.tar.gz"
+	#export CASACORE_PYTHON_SRC_DIR="$SOFTDIR_SRCS/python-casacore-$CASACORE_PYTHON_VERSION"
+	#export CASACORE_PYTHON_INSTALL_DIR="$SOFTDIR/python-casacore/v$CASACORE_PYTHON_VERSION"
 	
-	echo "Creating python casacore install dir $CASACORE_PYTHON_INSTALL_DIR ..."
-	mkdir -p "$CASACORE_PYTHON_INSTALL_DIR"
+	#echo "Creating python casacore install dir $CASACORE_PYTHON_INSTALL_DIR ..."
+	#mkdir -p "$CASACORE_PYTHON_INSTALL_DIR"
 	
 	# Download python casacore
-	if [ ! -d "$CASACORE_PYTHON_SRC_DIR" ] ; then
-		# Download python casacore
-		echo "Downloading python casacore from url $CASACORE_PYTHON_URL ..."
-		cd "$SOFTDIR_TAR"
-		wget -nc -O "python-casacore$CASACORE_PYTHON_VERSION.tar.gz" "$CASACORE_PYTHON_URL" 
+	#if [ ! -d "$CASACORE_PYTHON_SRC_DIR" ] ; then
+	#	# Download python casacore
+	#	echo "Downloading python casacore from url $CASACORE_PYTHON_URL ..."
+	#	cd "$SOFTDIR_TAR"
+	#	wget -nc -O "python-casacore$CASACORE_PYTHON_VERSION.tar.gz" "$CASACORE_PYTHON_URL" 
 	
-		# Untar python casacore
-		echo "Untar python casacore in source directory $SOFTDIR_SRCS ..."
-		cd "$SOFTDIR_SRCS"
-		tar -xzvf "$SOFTDIR_TAR/python-casacore$CASACORE_PYTHON_VERSION.tar.gz"
-	fi 
+	#	# Untar python casacore
+	#	echo "Untar python casacore in source directory $SOFTDIR_SRCS ..."
+	#	cd "$SOFTDIR_SRCS"
+	#	tar -xzvf "$SOFTDIR_TAR/python-casacore$CASACORE_PYTHON_VERSION.tar.gz"
+	#fi 
 	
 	# Build python casacore
-	echo "Building python casacore ..."
-	cd "$CASACORE_PYTHON_SRC_DIR"
-	CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py build
+	#echo "Building python casacore ..."
+	#cd "$CASACORE_PYTHON_SRC_DIR"
+	#CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py build
 	
 	# Install python casacore
-	echo "Installing python casacore ..."
-  export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages/:$PYTHONPATH
-	CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py install --prefix=$CASACORE_PYTHON_INSTALL_DIR
+	#echo "Installing python casacore ..."
+  #export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages/:$PYTHONPATH
+	#CFLAGS="-std=c++11 -I$CASACORE_INSTALL_DIR/include" LDFLAGS="-L$CASACORE_INSTALL_DIR/lib" python setup.py install --prefix=$CASACORE_PYTHON_INSTALL_DIR
 	
 	# Setting environment variables
-	echo '### PYTHON CASA CORE ###' >> "$SETVARS_FILE"
-	echo 'export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages:$PYTHONPATH' >> "$SETVARS_FILE"
-	echo '' >> "$SETVARS_FILE"
+	#echo '### PYTHON CASA CORE ###' >> "$SETVARS_FILE"
+	#echo 'export PYTHONPATH=$CASACORE_PYTHON_INSTALL_DIR/lib/python2.7/site-packages:$PYTHONPATH' >> "$SETVARS_FILE"
+	#echo '' >> "$SETVARS_FILE"
 
 	
 	#################################
