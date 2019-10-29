@@ -1,0 +1,2 @@
+askapsoft-CP-0.24.0.tar.gz filter=lfs diff=lfs merge=lfs -text
+askapsoft-CP-0.21.0.tar.gz filter=lfs diff=lfs merge=lfs -text
