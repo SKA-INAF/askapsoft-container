@@ -25,7 +25,7 @@ From: askapsoft_base.simg
 	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/Sources
 
 %files
-	files/askapsoft-CP-0.21.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.21.0.tar.gz
+	files/askapsoft-CP-0.24.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.24.0.tar.gz
 	
 %post
 
@@ -37,11 +37,20 @@ From: askapsoft_base.simg
 	export SOFTDIR_SRCS="$SOFTDIR/Sources"
 	export SOFTDIR_TAR="$SOFTDIR/TarFiles"
 	
+	# - Dependencies
+	##export PATH=/opt/Software/casa/v5.4.0/bin:/opt/Software/aoflagger/v2.13.0/bin:/opt/Software/casacore/v3.0.0/bin:/opt/Software/openmpi/v2.1.2/bin:$PATH
+	export PATH=/usr/bin:/usr/local/bin:/opt/Software/casa/v5.4.0/bin:/opt/Software/aoflagger/v2.13.0/bin:/opt/Software/casacore/v3.0.0/bin:$PATH
+	##export LD_LIBRARY_PATH=/opt/Software/aoflagger/v2.13.0/lib:/opt/Software/casacore/v3.0.0/lib:/opt/Software/openmpi/v2.1.2/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib:/opt/Software/aoflagger/v2.13.0/lib:/opt/Software/casacore/v3.0.0/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+	export PYTHONPATH=/opt/Software/casa/v5.4.0/lib/python2.7:/opt/Software/casa/v5.4.0/lib/python2.7/__casac__:$PYTHONPATH
+	##export PKG_CONFIG_PATH=/opt/Software/openmpi/v2.1.2/lib/pkgconfig:$PKG_CONFIG_PATH
+	export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
 
 	#################################
 	###    ASKAP SOFT
 	#################################
-	export ASKAPSOFT_VERSION="0.21.0"	
+	export ASKAPSOFT_VERSION="0.24.0"	
 	export ASKAPSOFT_TOP_DIR="$SOFTDIR/askapsoft"
 	export ASKAPSOFT_SRC_DIR="$SOFTDIR_SRCS/askapsoft-CP-$ASKAPSOFT_VERSION"
 	export ASKAPSOFT_INSTALL_DIR="$ASKAPSOFT_TOP_DIR/v$ASKAPSOFT_VERSION"
