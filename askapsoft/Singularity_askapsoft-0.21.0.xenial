@@ -1,0 +1,228 @@
+Bootstrap: localimage
+From: askapsoft_base.simg
+
+
+%help
+	====================================================================================================
+	==       						ASKAPSOFT CONTAINER HELP         																							==
+	====================================================================================================
+	This is an ASKAPSOFT container. It uses the dependencies provided in the base container.
+	
+	====================================================================================================
+	
+
+%labels
+	Maintainer Simone Riggi (INAF-OACT)
+	Version v1.0
+
+%environment
+	
+
+%setup 
+	echo "Creating software dirs ..."
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/TarFiles
+	mkdir -p ${SINGULARITY_ROOTFS}/opt/Software/Sources
+
+%files
+	files/askapsoft-CP-0.21.0.tar.gz /opt/Software/TarFiles/askapsoft-CP-0.21.0.tar.gz
+	
+%post
+
+	#################################
+	###    ENV VARS
+	#################################	
+	# Define env variables
+	export SOFTDIR="/opt/Software"
+	export SOFTDIR_SRCS="$SOFTDIR/Sources"
+	export SOFTDIR_TAR="$SOFTDIR/TarFiles"
+	
+
+	#################################
+	###    ASKAP SOFT
+	#################################
+	export ASKAPSOFT_VERSION="0.21.0"	
+	export ASKAPSOFT_TOP_DIR="$SOFTDIR/askapsoft"
+	export ASKAPSOFT_SRC_DIR="$SOFTDIR_SRCS/askapsoft-CP-$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_INSTALL_DIR="$ASKAPSOFT_TOP_DIR/v$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_RELEASE_DIR="$ASKAPSOFT_INSTALL_DIR/cpapps"		
+	export ASKAPSOFT_PIPELINE_RELEASE_DIR="$ASKAPSOFT_INSTALL_DIR/pipelines"		
+
+	echo "Creating ASKAPSoft install dir $ASKAPSOFT_INSTALL_DIR ..."
+	mkdir -p "$ASKAPSOFT_INSTALL_DIR"
+	mkdir -p "$ASKAPSOFT_RELEASE_DIR"
+	mkdir -p "$ASKAPSOFT_PIPELINE_RELEASE_DIR"
+
+	# Untar ASKAPSOFT
+	if [ ! -d "$ASKAPSOFT_SRC_DIR" ] ; then
+		echo "Untar askapsoft in dir $SOFTDIR_SRCS ..."
+		cd "$SOFTDIR_SRCS"
+		tar -xzvf "$SOFTDIR_TAR/askapsoft-CP-$ASKAPSOFT_VERSION.tar.gz"
+	fi 
+
+	ls -la $SOFTDIR_SRCS
+	ls -la $ASKAPSOFT_SRC_DIR
+
+	echo "Entering askapsoft source dir $ASKAPSOFT_SRC_DIR"
+	cd "$ASKAPSOFT_SRC_DIR"
+		
+	echo "Bootstrapping build ..."
+	unset PYTHONPATH ## Need otherwise virtualenv fails
+	/usr/bin/python bootstrap.py -n
+
+	
+	#################################
+	###    SETVARS ASKAPSOFT
+	#################################
+	echo "Loading askapsoft env vars ..."
+	cd "$ASKAPSOFT_SRC_DIR"
+	ls -la $ASKAPSOFT_SRC_DIR
+	##. $ASKAPSOFT_SRC_DIR/initaskap.sh
+	##sh $ASKAPSOFT_SRC_DIR/initaskap.sh
+
+	export ASKAP_ROOT="$ASKAPSOFT_SRC_DIR"
+	export RBUILD_REMOTE_ARCHIVE="https://www.atnf.csiro.au/computing/software/askapsoft/sdp/archives/"
+	export PYTHONPATH="${ASKAP_ROOT}/share/scons_tools:$PYTHONPATH"
+	export PATH="${ASKAP_ROOT}/bin:${PATH}"
+	##export PS1="(askap)${PS1}"
+	MANPATH=`echo $MANPATH | sed "s#$ASKAP_ROOT/man:##"`
+	MANPATH="${ASKAP_ROOT}/man:${MANPATH}"
+	export MANPATH
+	export ARTISTIC_STYLE_OPTIONS="${ASKAP_ROOT}/astylerc"
+	export PYLINTRC="${ASKAP_ROOT}/pylintrc"
+	export ANT_HOME="${ASKAP_ROOT}/share/ant"
+
+
+	#################################
+	###    FIX BUILD ISSUES
+	#################################
+	## Add gfortran dependency in Code/Base/imagemath/
+	echo 'gfortran=/usr/lib/x86_64-linux-gnu/;gfortran' >> "$ASKAPSOFT_SRC_DIR/Code/Base/imagemath/current/dependencies.default"
+
+
+	#################################
+	###    BUILD ASKAPSOFT
+	#################################
+	echo "Building askapsoft ..."
+	rbuild -S -a
+
+	#####################################
+	###    INSTALL ASKAPSOFT RELEASES
+	#####################################	
+	## CPAPPS
+	echo "Creating cpapps release ..."
+	cd $ASKAPSOFT_SRC_DIR/Code/Systems/cpapps
+	rbuild -n -t release
+
+	echo "Installing cpapps release in dir $ASKAPSOFT_RELEASE_DIR ..."
+	mv release-unknown.tgz $ASKAPSOFT_RELEASE_DIR
+	cd $ASKAPSOFT_RELEASE_DIR
+	tar -xzvf release-unknown.tgz --strip 1
+
+	## PIPELINES (NB: Created release tar is empty, don't know why, so copying files by hand!)
+	echo "Creating pipelines release ..."
+	cd $ASKAPSOFT_SRC_DIR/Code/Components/Pipelines/bash-pipelines/current
+	rbuild -n -t release
+
+	echo "Installing pipelines in dir $ASKAPSOFT_PIPELINE_RELEASE_DIR ..."
+	cp -rp install/* $ASKAPSOFT_PIPELINE_RELEASE_DIR
+
+	## Set env vars
+	export PATH=$ASKAPSOFT_RELEASE_DIR/bin:$ASKAPSOFT_PIPELINE_RELEASE_DIR/bin:$PATH
+	export LD_LIBRARY_PATH=$ASKAPSOFT_RELEASE_DIR/lib:$LD_LIBRARY_PATH	
+	export PIPELINEDIR="$ASKAPSOFT_PIPELINE_RELEASE_DIR/bin"
+
+	#####################################
+	###    CREATE MODULES
+	#####################################	
+	## ASKAPSOFT MODULE
+	export ASKAPSOFT_MODULE_DIR="/opt/modulefiles/askapsoft"
+	export ASKAPSOFT_MODULE_FILE="$ASKAPSOFT_MODULE_DIR/$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_MODULE_VERSION_FILE="$ASKAPSOFT_MODULE_DIR/.version"
+	mkdir -p "$ASKAPSOFT_MODULE_DIR"
+	
+
+	echo '#%Module1.0#####################################################################' > "$ASKAPSOFT_MODULE_FILE"
+	echo '##' >> "$ASKAPSOFT_MODULE_FILE"
+	echo '## askapsoft modulefile' >> "$ASKAPSOFT_MODULE_FILE"
+	echo '##' >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'proc ModulesHelp { } {' >> "$ASKAPSOFT_MODULE_FILE"
+  echo '  global version' >> "$ASKAPSOFT_MODULE_FILE"
+	echo '  puts stderr "\tThis module provides the ASKAPsoft software package."' >> "$ASKAPSOFT_MODULE_FILE"
+	echo '}' >> "$ASKAPSOFT_MODULE_FILE"
+
+	echo '' >> "$ASKAPSOFT_MODULE_FILE"
+	echo '# No two versions of this module can be loaded simultaneously' >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'conflict        askapsoft' >> "$ASKAPSOFT_MODULE_FILE"
+
+	echo '' >> "$ASKAPSOFT_MODULE_FILE"
+
+	#if { [ module-info mode load ] } {
+	#    if [ is-loaded gcc ] {
+	#        module unload gcc
+	#    }
+	#    module load gcc/4.9.3
+	#}
+
+	echo 'module-whatis   "ASKAPsoft software package"' >> "$ASKAPSOFT_MODULE_FILE"
+	echo "set ASKAP_HOME  $ASKAPSOFT_RELEASE_DIR" >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'set PYTHON_LIB_VERSION 2.7' >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'prepend-path    PATH            $ASKAP_HOME/bin' >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'prepend-path    LD_LIBRARY_PATH $ASKAP_HOME/lib64' >> "$ASKAPSOFT_MODULE_FILE"
+	echo 'prepend-path    PYTHONPATH      $ASKAP_HOME/lib64/python${PYTHON_LIB_VERSION}/site-packages' >> "$ASKAPSOFT_MODULE_FILE"
+	echo "setenv ASKAPSOFT_RELEASE $ASKAPSOFT_VERSION" >> "$ASKAPSOFT_MODULE_FILE"
+
+	echo '#%Module' > "$ASKAPSOFT_MODULE_VERSION_FILE"
+	echo 'set ModulesVersion "'"$ASKAPSOFT_VERSION"'"' >> "$ASKAPSOFT_MODULE_VERSION_FILE"
+
+
+	## PIPELINES MODULE
+	export ASKAPSOFT_PIPELINE_MODULE_DIR="/opt/modulefiles/askappipeline"
+	export ASKAPSOFT_PIPELINE_MODULE_FILE="$ASKAPSOFT_PIPELINE_MODULE_DIR/$ASKAPSOFT_VERSION"
+	export ASKAPSOFT_PIPELINE_MODULE_VERSION_FILE="$ASKAPSOFT_PIPELINE_MODULE_DIR/.version"
+	mkdir -p "$ASKAPSOFT_PIPELINE_MODULE_DIR"
+
+
+	echo '#%Module1.0#####################################################################' > "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo '##' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo '## askappipeline modulefile' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo '##' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo 'proc ModulesHelp { } {' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+  echo '  global version' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+  echo '  puts stderr "\tThis modules provides scripts to run ASKAPsoft pipeline processing."' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo '}' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+
+	echo '' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+
+	echo '# No two versions of this module can be loaded simultaneously' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo 'conflict        askappipeline' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+
+	#prereq aces
+	#if { [ module-info mode load ] } {
+	#    module load aces
+	#}
+
+	echo 'module-whatis   "ASKAPsoft pipeline processing"' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo "set PIPELINEHOME  $ASKAPSOFT_PIPELINE_RELEASE_DIR" >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo 'prepend-path    PATH            $PIPELINEHOME/bin' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo 'setenv PIPELINEDIR $PIPELINEHOME/bin' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+	echo 'setenv PIPELINE_VERSION $ASKAPSOFT_VERSION' >> "$ASKAPSOFT_PIPELINE_MODULE_FILE"
+
+
+	echo '#%Module' > "$ASKAPSOFT_PIPELINE_MODULE_VERSION_FILE"
+	echo 'set ModulesVersion "'"$ASKAPSOFT_VERSION"'"' >> "$ASKAPSOFT_PIPELINE_MODULE_VERSION_FILE"
+
+
+	
+	#################################
+	###    SET ENV VARS
+	#################################
+	echo "export PATH=$PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export PYTHONPATH=$PYTHONPATH" >> $SINGULARITY_ENVIRONMENT
+	echo "export PIPELINEDIR=$PIPELINEDIR" >> $SINGULARITY_ENVIRONMENT
+
+
+%runscript
+	printenv
